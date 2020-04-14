@@ -1,119 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Web Serial</title>
-    <meta
-      http-equiv="origin-trial"
-      content="AmrmfeJnyzm7XmD64eIeAuCdH0/Flc/xzZb0e6S5xShMWCrIlB2oRWiV+q4KEDYMFT/Lp2u6UFK+zkGdYlwdUAEAAABreyJvcmlnaW4iOiJodHRwczovL3VuamF2YXNjcmlwdGVyLXdlYi1zZXJpYWwtZXhhbXBsZS5nbGl0Y2gubWU6NDQzIiwiZmVhdHVyZSI6IlNlcmlhbCIsImV4cGlyeSI6MTU5MDA3NzQxM30="
-    />
-    <style>
-      .repo-link {
-        position: fixed;
-        bottom: 0;
-        right: 0;
-        margin: 0 1rem 1rem 0;
-      }
-    </style>
-  </head>
+    <title>PC Gamepad to game console</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <!-- import the webpage's stylesheet -->
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
+    
+    <!-- import the webpage's javascript file -->
+    <script src="/script.js" defer></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"></script>
+  </head>  
   <body>
-    <button id="connect-to-serial">Connect to serial port</button>
-    <button id="shake-hands">Shake hands</button>
-    <button id="get-serial-messages">Get serial messages</button>
-    <div>
-      <form id="message-form">
-        <input type="text" id="message-input" disabled="true" />
-        <button type="submit" id="submit-button" disabled="true">Send</button>
-      </form>
-    </div>
-    <div id="serial-messages-container"></div>
+    <button class="btn btn-primary" id="connect-button">🔌 Connect</button>
+    
 
-    <!--   <div class="repo-link">
-    <a href="https://github.com/UnJavaScripter/web-serial-example">GitHub Repo</a>
-  </div> -->
-
-    <script src="./dist/app.js"></script>
-    <script>
-      const serialGameController = new SerialGameController();
-      const connect = document.getElementById("connect-to-serial");
-      const shakeHand = document.getElementById("shake-hands");
-      const getSerialMessages = document.getElementById("get-serial-messages");
-      const messageForm = document.getElementById("message-form");
-      const messageInput = document.getElementById("message-input");
-      const submitButton = document.getElementById("submit-button");
-      const serialMessagesContainer = document.getElementById(
-        "serial-messages-container"
-      );
-
-      connect.addEventListener("pointerdown", () => {
-        serialGameController.init();
-        // serialGameController.shakeHands();
-
-        serialMessagesContainer.removeAttribute("disabled");
-        messageInput.removeAttribute("disabled");
-        submitButton.removeAttribute("disabled");
-      });
-
-      shakeHand.addEventListener("pointerdown", () => {
-        // serialGameController.init();
-        shakeHands();
-
-        serialMessagesContainer.removeAttribute("disabled");
-        messageInput.removeAttribute("disabled");
-        submitButton.removeAttribute("disabled");
-      });
-
-      messageForm.addEventListener("submit", event => {
-        event.preventDefault();
-        serialGameController.write(event.target.firstElementChild.value);
-        getSerialMessage();
-      });
-
-      getSerialMessages.addEventListener("pointerdown", async () => {
-        getSerialMessage();
-      });
-
-      async function shakeHands() {
-        if (serialGameController.writer != null) {
-          console.log("Serial port is open");
-          serialGameController.write(serialGameController.resetCommand);
-          response = await serialGameController.read();
-          console.log(response);
-          if (response == 4) {
-            console.log("A wild Arduino appears");
-            serialGameController.write(serialGameController.arduinoGreeting[0]);
-            response = await serialGameController.read();
-            console.log(response);
-            if (response == 1) {
-              console.log("Arduino says hi");
-              console.log(serialGameController.arduinoGreeting[1]);
-              serialGameController.write(serialGameController.arduinoGreeting[1]);
-              response = await serialGameController.read();
-              console.log(response);
-              if (response[0] == 2) {
-                console.log("Arduino and computer are now friends");
-              } 
-              else {
-                console.error("Arduino left the party");
-              }
-            } 
-            else {
-              console.error("Arduino is being anti-social");
-            }
-          } 
-          else {
-            console.error("Let's try this again...");
-          }
-        } 
-        else {
-          console.error("Serial port not connected");
-        }
-      }
-      async function getSerialMessage() {
-        serialMessagesContainer.innerText +=
-          (await serialGameController.read()) + "\n";
-      }
-    </script>
+    <!-- include the Glitch button to show what the webpage is about and
+          to make it easier for folks to view source and remix -->
+    <div class="glitchButton" style="position:fixed;top:20px;right:20px;"></div>
+    <script src="https://button.glitch.me/button.js"></script>
   </body>
 </html>
