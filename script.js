@@ -1,46 +1,64 @@
+//****This section is for the serial communication****
 const connectButton = document.getElementById("connect-button");
-//const shakeHandsButton = document.getElementById("shake-hands-button");
 let port;
 let writer;
 let reader;
-//let inputBuffer = 0;
+let greeting = new Uint8Array([255, 253, 216]);
 
+//Check if the serial API is enabled and add enable the connect button if it is
 if ("serial" in navigator) {
+  const notSupported = document.getElementById("notSupported");
+  const serialConnect = document.getElementById("serialConnect");
+  notSupported.classList.add("hidden");
+  serialConnect.classList.remove("hidden");
   connectButton.addEventListener("click", function() {
     if (port) {
       reader.cancel();
       writer.releaseLock();
       port.close();
       port = undefined;
-      console.log("Disconnected")
+      console.log("Disconnected");
       connectButton.innerText = "🔌 Connect";
     } else {
       serialInit();
     }
   });
   connectButton.disabled = false;
+} else {
+  //!!!!Add something here to prompt about browser compatibility and experimental functions!!!!
 }
-
-// shakeHandsButton.addEventListener("click", function() {
-//   shakeHands();
-// });
-// shakeHandsButton.disabled = false;
 
 async function serialInit() {
   port = await navigator.serial.requestPort({});
   await port.open({ baudrate: 115200 });
-  connectButton.innerText = "🔌 Disconnect";
   writer = port.writable.getWriter();
   reader = port.readable.getReader();
   console.log("Connected");
-  shakeHands();
+  connectButton.innerText = "🔌 Connecting...";
+  let status = await shakeHands();
+  //console.log("Shake hands: " + status);
+  if (status == true) {
+    connectButton.innerText = "🔌 Disconnect";
+  } else {
+    if (port) {
+      reader.cancel();
+      writer.releaseLock();
+      port.close();
+      port = undefined;
+      reader = undefined;
+      writer = undefined;
+      console.log("Disconnected");
+    }
+  }
 }
 
 async function serialWrite(data) {
   try {
     await writer.writable;
-    await writer.write(data);
-    return data;
+    //console.log("Serial write: " + data);
+    return await writer.write(data);
+    //console.log (response)
+    //return response;
   } catch (err) {
     console.error(err);
   }
@@ -48,51 +66,300 @@ async function serialWrite(data) {
 
 async function serialRead() {
   try {
-    await reader.readable;
-    const data = await reader.read();
-    //console.log(data);
+    // let readable = await reader.readable();
+    // console.log(readable);
+    let data = await reader.read();
+    // console.log("read!")
     return data.value;
   } catch (err) {
     console.error(err);
   }
 }
 
-function shakeHands() {
-  let response = arduinoCommunicate(255, 4);
-  if (response) {
-  console.log ("A wild Arduino appears");
+async function wait(ms) {
+  return new Promise(resolve => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function shakeHands() {
+  let response;
+  response = await serialWrite(new Uint8Array([255]));
+  response = await serialWrite(new Uint8Array([255]));
+  await wait(250);
+  // console.log(port.readable);
+  response = await serialRead();
+  // console.log("Reset? " + response);
+  response = await arduinoCommunicate(255, 4);
+  // console.log("Response: " + response);
+  if (response == true) {
+    console.log("A wild Arduino appears");
+    response = await arduinoCommunicate(253, 1);
+    // console.log("Response: " + response);
+    if (response == true) {
+      console.log("Arduino says hi");
+      response = await arduinoCommunicate(216, 2);
+      // console.log("Response: " + response);
+      if (response == true) {
+        console.log("Arduino and computer are now friends");
+      } else {
+        console.error("Arduino has left the party");
+      }
+    } else {
+      console.error("Arduino has run away");
+    }
   } else {
-    console.error ("Nothing happened");
+    console.error("Nothing happened");
   }
-  response = arduinoCommunicate(253, 1);
-  if (response) {
-    console.log ("Arduino says hi")
-  } else {
-    console.error ("Arduino has run away")
-  }
-  response = arduinoCommunicate(216, 2);
-  if (response) {
-    console.log ("Arduino and computer are now friends")
-  } else {
-    console.error ("Arduino has left the party")
-  }
+  return response;
 }
 
 async function arduinoCommunicate(request, response) {
-  let bytes = new Uint8Array([request]); //Initilize with reset command
-  let arduinoResponse = new Uint8Array(1);
-
-  await serialWrite(bytes); //Send command and wait for it to finish
-  arduinoResponse = await serialRead(); //Wait for reply from Arduino
-  //console.log(arduinoResponse);
-  if (arduinoResponse == response) {
-    return(true);
+  if (port) {
+    let bytes = new Uint8Array([request]);
+    let arduinoResponse = new Uint8Array(1);
+    // console.log(bytes);
+    let write = await serialWrite(bytes); //Send command and wait for it to finish
+    // console.log("write complete");
+    arduinoResponse = await serialRead(); //Wait for reply from Arduino
+    // console.log("Arduino says: " + arduinoResponse);
+    if (arduinoResponse == response) {
+      return true;
+    } else {
+      return false;
+    }
   } else {
-    return(false);
+    console.error("Not connected to Arduino");
+  }
+}
+//****End of serial communication section****
+
+//****This section is for the gamepad input****
+
+//!!!!Need to add player and button remapping functions!!!!
+
+let controllers = {};
+let controllerTimestamps = {};
+let button = {};
+let back = {};
+let start = {};
+let bumper = {};
+let dpad = {};
+let controllerData = new Uint8Array(2);
+
+//Add newly connected gamepads
+function gamepadconnected(e) {
+  const gamepad = e.gamepad;
+  controllers[gamepad.index] = gamepad;
+  let controllerDiv = document.getElementById("gamepad-0"); // + gamepad.index);
+  controllerDiv.classList.remove("disconnected");
+  button[gamepad.index] = controllerDiv.getElementsByClassName("button");
+  back[gamepad.index] = controllerDiv.getElementsByClassName("back");
+  start[gamepad.index] = controllerDiv.getElementsByClassName("start");
+  bumper[gamepad.index] = controllerDiv.getElementsByClassName("bumper");
+  dpad[gamepad.index] = controllerDiv.getElementsByClassName("face");
+  console.log(button[gamepad.index]);
+  console.log(gamepad);
+  controllerTimestamps[gamepad.index] = gamepad.timestamp;
+  window.requestAnimationFrame(renderGamepad);
+}
+
+//Remove disconnected gamepads
+function gamepaddisconnected(e) {
+  const gamepad = e.gamepad;
+  let controllerDiv = document.getElementById("gamepad-0"); // + gamepad.index);
+  controllerDiv.classList.add("disconnected");
+  delete controllers[gamepad.index];
+}
+
+//Listen for connected or disconnected gamepads
+window.addEventListener("gamepadconnected", gamepadconnected);
+window.addEventListener("gamepaddisconnected", gamepaddisconnected);
+
+//Main animation loop
+async function renderGamepad() {
+  updateGamepads();
+  for (let i in controllers) {
+    let controller = controllers[i];
+    let currentTimestamp = controller.timestamp;
+    if (currentTimestamp > controllerTimestamps[i]) {
+      //console.log(currentTimestamp);
+      controllerTimestamps[i] = currentTimestamp;
+      //Set serial controller ID and initilize first byte
+      if (i == 0) {
+        controllerData[0] = 0b11000000;
+      }
+      if (i == 1) {
+        controllerData[0] = 0b01000000;
+      }
+      if (i == 2) {
+        controllerData[0] = 0b10000000;
+      }
+      if (i == 3) {
+        controllerData[0] = 0b00000000;
+      }
+      controllerData[1] = 0b00000000;
+      //Capture controller input here and send to HTML and serial
+      let buttons = controller.buttons;
+      let axes = controller.axes;
+      for (let b in buttons) {
+        if (b == 0) {
+          if (buttons[b].pressed) {
+            controllerData[1] = controllerData[1] | 0b00000001;
+            button[i][0].classList.add("pressed");
+          } else {
+            button[i][0].classList.remove("pressed");
+          }
+        }
+        if (b == 1) {
+          if (buttons[b].pressed) {
+            controllerData[1] = controllerData[1] | 0b00000010;
+            button[i][1].classList.add("pressed");
+          } else {
+            button[i][1].classList.remove("pressed");
+          }
+        }
+        if (b == 2) {
+          if (buttons[b].pressed) {
+            controllerData[1] = controllerData[1] | 0b00000100;
+            button[i][2].classList.add("pressed");
+          } else {
+            button[i][2].classList.remove("pressed");
+          }
+        }
+        if (b == 3) {
+          if (buttons[b].pressed) {
+            controllerData[1] = controllerData[1] | 0b00001000;
+            button[i][3].classList.add("pressed");
+          } else {
+            button[i][3].classList.remove("pressed");
+          }
+        }
+        if (b == 4) {
+          if (buttons[b].pressed) {
+            controllerData[1] = controllerData[1] | 0b00010000;
+            bumper[i][0].classList.add("pressed");
+          } else {
+            bumper[i][0].classList.remove("pressed");
+          }
+        }
+        if (b == 5) {
+          if (buttons[b].pressed) {
+            controllerData[1] = controllerData[1] | 0b00100000;
+            bumper[i][1].classList.add("pressed");
+          } else {
+            bumper[i][1].classList.remove("pressed");
+          }
+        }
+        if (b == 8) {
+          if (buttons[b].pressed) {
+            controllerData[1] = controllerData[1] | 0b01000000;
+            back[i][0].classList.add("pressed");
+          } else {
+            back[i][0].classList.remove("pressed");
+          }
+        }
+        if (b == 9) {
+          if (buttons[b].pressed) {
+            controllerData[1] = controllerData[1] | 0b10000000;
+            start[i][0].classList.add("pressed");
+          } else {
+            start[i][0].classList.remove("pressed");
+          }
+        }
+
+        // if (b == 12) {
+        //   if (buttons[b].pressed) {
+        //     controllerData[1] = controllerData[1] | 0b10000000;
+        //     dpad[i][0].classList.add("pressed");
+        //   } else {
+        //     dpad[i][0].classList.remove("pressed");
+        //   }
+        // }
+        // if (b == 13) {
+        //   if (buttons[b].pressed) {
+        //     controllerData[1] = controllerData[1] | 0b10000000;
+        //     dpad[i][1].classList.add("pressed");
+        //   } else {
+        //     dpad[i][1].classList.remove("pressed");
+        //   }
+        // }
+        // if (b == 14) {
+        //   if (buttons[b].pressed) {
+        //     controllerData[1] = controllerData[1] | 0b10000000;
+        //     dpad[i][2].classList.add("pressed");
+        //   } else {
+        //     dpad[i][2].classList.remove("pressed");
+        //   }
+        // }
+        // if (b == 15) {
+        //   if (buttons[b].pressed) {
+        //     controllerData[1] = controllerData[1] | 0b10000000;
+        //     dpad[i][3].classList.add("pressed");
+        //   } else {
+        //     dpad[i][3].classList.remove("pressed");
+        //   }
+        // }
+      }
+      for (let a in axes) {
+        if (a == 0) {
+          if (axes[a] > 0.45 || buttons[15].pressed) {
+            controllerData[0] = controllerData[0] | 0b00001000;
+            dpad[i][3].classList.add("pressed");
+          } else {
+            dpad[i][3].classList.remove("pressed");
+          }
+          if (axes[a] < -0.45 || buttons[14].pressed) {
+            controllerData[0] = controllerData[0] | 0b00000100;
+            dpad[i][2].classList.add("pressed");
+          } else {
+            dpad[i][2].classList.remove("pressed");
+          }
+        }
+        if (a == 1) {
+          if (axes[a] > 0.45 || buttons[13].pressed) {
+            controllerData[0] = controllerData[0] | 0b00100000;
+            dpad[i][1].classList.add("pressed");
+          } else {
+            dpad[i][1].classList.remove("pressed");
+          }
+          if (axes[a] < -0.45 || buttons[12].pressed) {
+            controllerData[0] = controllerData[0] | 0b00010000;
+            dpad[i][0].classList.add("pressed");
+          } else {
+            dpad[i][0].classList.remove("pressed");
+          }
+        }
+      }
+      //console.log(controllerData);
+      await serialWrite(new Uint8Array([controllerData[1]]));
+      let ack = await arduinoCommunicate(controllerData[0], 1);
+      //console.log(ack);
+      if (ack == false) {
+        console.error("Serial communication error, attempting reset");
+        await serialWrite(new Uint8Array([255]));
+        await serialWrite(new Uint8Array([255]));
+        await shakeHands();
+      }
+     }
+  }
+
+  window.requestAnimationFrame(renderGamepad);
+}
+
+//Update the current state of the conencted gamepads
+function updateGamepads() {
+  let gamepads = navigator.getGamepads();
+  for (let i = 0; i < gamepads.length; i++) {
+    if (gamepads[i]) {
+      if (!(gamepads[i].index in controllers)) {
+        gamepadconnected(gamepads[i]);
+      } else {
+        controllers[gamepads[i].index] = gamepads[i];
+      }
+    }
   }
 }
 
-function renderGamepad() {
-  window.requestAnimationFrame(renderGamepad);
-}
 window.requestAnimationFrame(renderGamepad);
+//****End of gamepad input section****

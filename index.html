@@ -2,26 +2,103 @@
 <html lang="en">
   <head>
     <title>PC Gamepad to game console</title>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
     <!-- import the webpage's stylesheet -->
-    <link rel="stylesheet" href="/style.css">
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
-    
+    <link rel="stylesheet" href="/style.css" />
+    <link rel="stylesheet" href="snes/snes.css" />
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+    />
+
     <!-- import the webpage's javascript file -->
     <script src="/script.js" defer></script>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"></script>
-  </head>  
+  </head>
   <body>
-    <button class="btn btn-primary" id="connect-button">🔌 Connect</button>
-    
+    <header class="header">
+      <h1>Gamepad to Arduino via Web Serial</h1>
+    </header>
+<main class="main">
+    <div id="notSupported" class="notsupported">
+      Sorry, <b>Web Serial</b> is not supported on this device, make sure you're
+      running Chrome 78 or later and have enabled the
+      <b>#enable-experimental-web-platform-features</b> flag in
+      <b>chrome://flags</b>
+    </div>
+  
+<div id="serialConnect" class="hidden">
+      <button class="btn btn-primary" id="connect-button">
+      🔌 Connect
+    </button>
+  </div>
+
+    <div class="controller snes disconnected" id="gamepad-0">
+      <div class="triggers">
+        <span class="trigger left" style="opacity: 0;"></span>
+        <span class="trigger right" style="opacity: 0;"></span>
+        <span class="trigger-button left"></span>
+        <span class="trigger-button right"></span>
+        <span class="clear"></span>
+      </div>
+
+      <div class="bumpers">
+        <span class="bumper left"></span>
+        <span class="bumper right"></span>
+        <span class="clear"></span>
+      </div>
+
+      <div class="quadrant p0"></div>
+
+      <div class="meta"></div>
+
+      <div class="arrows">
+        <span class="back"></span>
+        <span class="start"></span>
+        <span class="clear"></span>
+      </div>
+
+      <div class="abxy">
+        <span class="button a"></span>
+        <span class="button b"></span>
+        <span class="button x"></span>
+        <span class="button y"></span>
+      </div>
+
+      <div class="sticks">
+        <span
+          class="stick left"
+          style="margin-left: 0px; margin-top: 0px; transform: rotateX(0deg) rotateY(0deg);"
+        ></span>
+        <span
+          class="stick right"
+          style="margin-left: 0px; margin-top: 0px; transform: rotateX(0deg) rotateY(0deg);"
+        ></span>
+      </div>
+
+      <!--         <div class="wheels">
+            <span class="wheel left" data-name="stick-1-wheel" style="transform: rotate(0deg);"></span>
+            <span class="wheel right" data-name="stick-2-wheel" style="transform: rotate(0deg);"></span>
+        </div> -->
+
+      <div class="dpad">
+        <span class="face up"></span>
+        <span class="face down"></span>
+        <span class="face left"></span>
+        <span class="face right"></span>
+      </div>
+
+      <!--         <div class="fstick" data-name="arcade-stick"></div> -->
+    </div>
 
     <!-- include the Glitch button to show what the webpage is about and
           to make it easier for folks to view source and remix -->
     <div class="glitchButton" style="position:fixed;top:20px;right:20px;"></div>
     <script src="https://button.glitch.me/button.js"></script>
+  </main>
   </body>
 </html>
