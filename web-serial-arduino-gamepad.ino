@@ -302,7 +302,7 @@ void snesLatching() {
       snesClocking = false; // Exit clocking loop
     }
   }
-  //Serial1.write(3);
+  //Serial1.write(3); 
 }
 
 

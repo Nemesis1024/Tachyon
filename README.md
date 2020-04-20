@@ -6,11 +6,13 @@ Support for up to 4 game pads in and out (coming soon).
 
 Try it out here: [https://web-serial-arduino-gamepad.glitch.me](https://web-serial-arduino-gamepad.glitch.me)
 
-You will need to enable Chrome's **Experimental Web Platform Features** by visiting **chrome://flags/#enable-experimental-web-platform-features**
+You will need to enable Chrome's **Experimental Web Platform Features** by visiting [chrome://flags/#enable-experimental-web-platform-features](chrome://flags/#enable-experimental-web-platform-features)
+*(copy the link and paste in a new tab)*
 
 This is very much in **alpha** with **lots** of bugs, typos, ugly code and missing credits.
 
 Upcoming functionality:
+  * More stable and efficient serial communication
   * Button remapping  
   * NES skin  
   * Mutiple (4) controller inputs/outputs  
