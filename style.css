@@ -46,6 +46,8 @@ body {
 #notSupported {
   background-color: red;
   color: white;
+  position: fixed;
+  top: 30px;
   padding: 1em;
   margin-top: 1em;
   margin-bottom: 1em;
