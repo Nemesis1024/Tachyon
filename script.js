@@ -393,7 +393,7 @@ function changeSkin(skin) {
   let controllerDIV = document.getElementsByClassName("controller");
   for (let i = 0; i < controllerDIV.length; i++) {
     let img = document.createElement("img");
-    img.src = "/" + skin + "/" + skin + ".svg";
+    img.src = skin + "/" + skin + ".svg";
     controllerDIV[i].firstElementChild.remove();
     controllerDIV[i].appendChild(img);
   }
