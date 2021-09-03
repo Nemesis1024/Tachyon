@@ -11,25 +11,27 @@
 //  Joystick_(0x06, JOYSTICK_TYPE_GAMEPAD, 10, 1, false, false, false, false, false, false, false, false, false, false, false)
 //};
 
-boolean debug = false;
+boolean debug = true;
 
 unsigned long startingMicros;
 unsigned long currentMicros;
 
 boolean USBOutput = false;
+boolean SNES = false;
 
 byte clockStatus;
 byte p1Clocks;
 byte p2Clocks;
 
-int controllerInput;
-boolean controllerData[16];
+word controllerInput;
 boolean prevControllerData[4][16];
-boolean snesControllerData[4][16];
+word snesControllerData[4];
 
 void setup() {
   if (debug == true) {
+    delay (1000);
     Serial.begin(9600);
+    Serial.println("Debug mode enabled");
   }
   Serial1.begin(115200); //Try making this SUPER high 32u4 should be able to go up to 2Mbps!
   //  if (USBOutput == true) {
@@ -38,7 +40,7 @@ void setup() {
   //    }
   //  }
   //Setup SNES controller port interface pins and interrupt
-  attachInterrupt(1, snesLatching, RISING); //SNES player 1 latch signal is cnnected to INT1 (pin 2)
+  attachInterrupt(1, snesLatching, RISING); //SNES latch signal is cnnected to INT1 (pin 2)
   pinMode(3, INPUT); //SNES player 1 clock signal is connected to pin 3
   pinMode(4, OUTPUT); //SNES player 1 data line is connected to pin 4
   pinMode(6, INPUT); //SNES player 2 clock signal is connected to pin 6
@@ -46,24 +48,31 @@ void setup() {
 }
 
 
-void shakeHands() { // ******add FASTRUN to all functions except setup!!******
-  int greeting = 0;
-  //  delay(2000);
-  while (greeting != 216) {
-    if (Serial1.available()) {
-      greeting = Serial1.read();
+void shakeHands() {
+  word greeting = 0;
+  byte firstbyte = 0;
+  byte secondbyte = 0;
+  while (greeting != 18537) { //"Hi"
+    if (Serial1.available() >= 2) {
+      firstbyte = Serial1.read();
+      secondbyte = Serial1.read();
+      greeting = (secondbyte << 8) | (firstbyte);
       if (debug == true) {
         Serial.print("Greeting recieved: ");
         Serial.println(greeting);
       }
-      if (greeting == 255) {
+      if (greeting == 65535) {
         Serial1.write(4);
         if (debug == true) {
           Serial.println("Resetting");
         }
       }
-      if (greeting == 253) {
+      if (greeting == 20037) { //"NE"
         Serial1.write(1);
+        SNES = true;
+        if (debug == true) {
+          Serial.println("Outputting S/NES");
+        }
       }
     }
   }
@@ -78,12 +87,14 @@ void readControllerInput() {
   startingMicros = micros();
   int currentController;
   if (Serial1.available() >= 2) {
-    controllerInput = Serial1.read();
+    byte firstbyte = Serial1.read();
+    byte secondbyte = Serial1.read();
+    controllerInput = (firstbyte) | (secondbyte << 8);
     if (debug == true) {
       Serial.print("Input recieved: ");
       Serial.println(controllerInput);
     }
-    if (controllerInput == 255) {
+    if (controllerInput == 65535) {
       Serial1.write(4);
       if (debug == true) {
         Serial.println("Resetting");
@@ -91,81 +102,20 @@ void readControllerInput() {
       shakeHands();
       return;
     }
-    for (int i = 7; i >= 0; i--) {
-      controllerData[i] = bitRead(controllerInput, i);
+    currentController = (controllerInput >> 14); //the 2 MSB indicate controller number
+    controllerInput = (controllerInput & 16383); //clear controller number from controllerData
+    if (SNES == true) {
+      snesControllerData[currentController] = controllerInput;
     }
-    controllerInput = Serial1.read();
-    if (debug == true) {
-      Serial.print("Input recieved: ");
-      Serial.println(controllerInput);
-    }
-    if (controllerInput == 255) {
-      Serial1.write(4);
-      shakeHands();
-      return;
-    }
-    for (int i = 7; i >= 0; i--) {
-      controllerData[i + 8] = bitRead(controllerInput, i);
-    }
-    if (debug == true) {
-      for (int i = 0; i <= 15; i++) {
-      Serial.print(controllerData[i]);
-      }
-      Serial.println();
-    }
-    if (controllerData[14] == 1
-        && controllerData[15] == 1) { //controller data is for player 1
-      currentController = 0;
-    }
-    if (controllerData[14] == 0
-        && controllerData[15] == 1) { //controller data is for player 2
-      currentController = 1;
-    }
-    if (controllerData[14] == 1
-        && controllerData[15] == 0) { //controller data is for player 3
-      currentController = 2;
-    }
-    if (controllerData[14] == 0
-        && controllerData[15] == 0) { //controller data is for player 4
-      currentController = 3;
-    }
-    mapSNESOutputBits(currentController);
     //    if (USBOutput == true) {
     //      sendUSBControllerOutput(currentController);
     //    }
-  }
-}
-
-void mapSNESOutputBits(int playerNum) {
-  if (controllerData[0]) snesControllerData[playerNum][0] = 1; //SNES B
-  else snesControllerData[playerNum][0] = 0;
-  if (controllerData[2]) snesControllerData[playerNum][1] = 1; //SNES Y
-  else snesControllerData[playerNum][1] = 0;
-  if (controllerData[6]) snesControllerData[playerNum][2] = 1; //SNES Select
-  else snesControllerData[playerNum][2] = 0;
-  if (controllerData[7]) snesControllerData[playerNum][3] = 1; //SNES Start
-  else snesControllerData[playerNum][3] = 0;
-  if (controllerData[12]) snesControllerData[playerNum][4] = 1; //SNES Up
-  else snesControllerData[playerNum][4] = 0;
-  if (controllerData[13]) snesControllerData[playerNum][5] = 1; //SNES Down
-  else snesControllerData[playerNum][5] = 0;
-  if (controllerData[10]) snesControllerData[playerNum][6] = 1; //SNES Left
-  else snesControllerData[playerNum][6] = 0;
-  if (controllerData[11]) snesControllerData[playerNum][7] = 1; //SNES Right
-  else snesControllerData[playerNum][7] = 0;
-  if (controllerData[1]) snesControllerData[playerNum][8] = 1; //SNES A
-  else snesControllerData[playerNum][8] = 0;
-  if (controllerData[3]) snesControllerData[playerNum][9] = 1; //SNES X
-  else snesControllerData[playerNum][9] = 0;
-  if (controllerData[4]) snesControllerData[playerNum][10] = 1; //SNES L
-  else snesControllerData[playerNum][10] = 0;
-  if (controllerData[5]) snesControllerData[playerNum][11] = 1; //SNES R
-  else snesControllerData[playerNum][11] = 0;
-  Serial1.write(1); // Send ack/ready to Processing
-  if (debug == true) {
-    currentMicros = micros();
-    Serial.print("Time to process SNES output (in us):");
-    Serial.println(currentMicros - startingMicros);
+    Serial1.write(1); // Send ack/ready to Processing
+    if (debug == true) {
+      currentMicros = micros();
+      Serial.print("Time to process output (in us):");
+      Serial.println(currentMicros - startingMicros);
+    }
   }
 }
 
@@ -239,9 +189,9 @@ void mapSNESOutputBits(int playerNum) {
 
 void snesLatching() {
   // Set data lines for first button
-  if (snesControllerData[0][0]) PORTD &= B11101111;
+  if (bitRead(snesControllerData[0], 0)) PORTD &= B11101111;
   else PORTD |= B00010000;
-  if (snesControllerData[1][0]) PORTC &= B10111111;
+  if (bitRead(snesControllerData[1], 0)) PORTC &= B10111111;
   else PORTC |= B01000000;
 
   // Clocking loop
@@ -261,7 +211,7 @@ void snesLatching() {
     // If P1 was low then went high
     if ((p1ClockStatus == LOW) && (clockStatus & B00000001)) {
       p1ClockStatus = HIGH;
-      if (snesControllerData[0][p1Clocks]) PORTD &= B11101111;
+      if (bitRead(snesControllerData[0], p1Clocks)) PORTD &= B11101111;
       else PORTD |= B00010000;
       p1Clocks++;
     }
@@ -274,7 +224,7 @@ void snesLatching() {
     // If P2 was low then went high
     if ((p2ClockStatus == LOW) && (clockStatus & B10000000)) {
       p2ClockStatus = HIGH;
-      if (snesControllerData[1][p2Clocks]) PORTC &= B10111111;
+      if (bitRead(snesControllerData[1], p2Clocks)) PORTC &= B10111111;
       else PORTC |= B01000000;
       p2Clocks++;
     }
@@ -302,7 +252,6 @@ void snesLatching() {
       snesClocking = false; // Exit clocking loop
     }
   }
-  //Serial1.write(3); 
 }
 
 

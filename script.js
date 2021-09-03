@@ -4,8 +4,6 @@ let port;
 let writer;
 let reader;
 let arduinoReady = false;
-// let serialResponse;
-// let greeting = new Uint8Array([255, 253, 216]);
 
 //Check if the serial API is enabled and add enable the connect button if it is
 if ("serial" in navigator) {
@@ -15,12 +13,14 @@ if ("serial" in navigator) {
   serialConnect.classList.remove("hidden");
   connectButton.addEventListener("click", function() {
     if (port) {
-      reader.cancel();
+      reader.releaseLock();
       writer.releaseLock();
       port.close();
       port = undefined;
+      reader = undefined;
+      writer = undefined;
       console.log("Disconnected");
-      connectButton.innerText = "🔌 Connect";
+      connectButton.innerText = "Connect 🔌";
     } else {
       serialInit();
     }
@@ -30,26 +30,26 @@ if ("serial" in navigator) {
 
 async function serialInit() {
   port = await navigator.serial.requestPort({});
-  await port.open({ baudrate: 115200 });
+  await port.open({ baudRate: 115200 });
   writer = port.writable.getWriter();
   reader = port.readable.getReader();
   console.log("Connected");
-  connectButton.innerText = "🔌 Connecting...";
-  // serialInputHandler();
+  connectButton.innerText = "Connecting... 🔌";
   let status = await shakeHands();
   //console.log("Shake hands: " + status);
   if (status == true) {
-    connectButton.innerText = "🔌 Disconnect";
-    // serialInputHandler();
+    connectButton.innerText = "Disconnect 🔌";
   } else {
     if (port) {
-      reader.cancel();
+      await reader.cancel();
+      reader.releaseLock();
       writer.releaseLock();
       port.close();
       port = undefined;
       reader = undefined;
       writer = undefined;
       console.log("Disconnected");
+      connectButton.innerText = "Connect 🔌";
     }
   }
 }
@@ -57,10 +57,7 @@ async function serialInit() {
 async function serialWrite(data) {
   try {
     await writer.writable;
-    //console.log("Serial write: " + data);
     return await writer.write(data);
-    //console.log (response)
-    //return response;
   } catch (err) {
     console.error(err);
   }
@@ -68,9 +65,7 @@ async function serialWrite(data) {
 
 async function serialRead() {
   try {
-    // let readable = await reader.readable();
     let data = await reader.read();
-    // console.log(data);
     return data.value;
   } catch (err) {
     console.error(err);
@@ -85,21 +80,14 @@ async function wait(ms) {
 
 async function shakeHands() {
   let response;
-  response = await serialWrite(new Uint8Array([255]));
-  response = await serialWrite(new Uint8Array([255]));
-  // await wait(0.1);
-  response = await serialRead();
-  // console.log("Reset? " + response);
-  response = await arduinoCommunicate(255, 4);
-  // console.log("Response: " + response);
+  console.log("Probing...");
+  response = await arduinoCommunicate(65535, 4);
   if (response == true) {
     console.log("A wild Arduino appears");
-    response = await arduinoCommunicate(253, 1);
-    // console.log("Response: " + response);
+    response = await arduinoCommunicate(20037, 1); //Tell Arduino we are in S/NES mode ("NE")
     if (response == true) {
       console.log("Arduino says hi");
-      response = await arduinoCommunicate(216, 2);
-      // console.log("Response: " + response);
+      response = await arduinoCommunicate(18537, 2); //"Hi"
       if (response == true) {
         console.log("Arduino and computer are now friends");
       } else {
@@ -116,15 +104,10 @@ async function shakeHands() {
 
 async function arduinoCommunicate(request, response) {
   if (port) {
-    let bytes = new Uint8Array([request]);
-    let arduinoResponse; // = new Uint8Array(1);
-    // console.log(bytes);
-    // serialResponse = undefined;
+    let bytes = new Uint16Array([request]);
+    let arduinoResponse;
     let write = await serialWrite(bytes); //Send command and wait for it to finish
-    // console.log("write complete");
     arduinoResponse = await serialRead(); //Wait for reply from Arduino
-    // console.log("Arduino says: " + arduinoResponse);
-    console.log("Got: " + arduinoResponse + " Expected: " + response);
     if (arduinoResponse == response) {
       return true;
     } else {
@@ -138,30 +121,43 @@ async function arduinoCommunicate(request, response) {
 
 //****This section is for the gamepad input****
 
-//!!!!Need to add player and button remapping functions!!!!
-
 let controllers = {};
 let controllerTimestamps = {};
-let button = {};
+let buttonA = {};
+let buttonB = {};
+let buttonX = {};
+let buttonY = {};
 let back = {};
 let start = {};
-let bumper = {};
-let dpad = {};
-let controllerData = [{}, new Uint8Array(2)];
+let bumperL = {};
+let bumperR = {};
+let dpadU = {};
+let dpadD = {};
+let dpadL = {};
+let dpadR = {};
+let controllerData = [{}, new Uint16Array()];
 
 //Add newly connected gamepads
 function gamepadconnected(e) {
   const gamepad = e.gamepad;
-  controllers[gamepad.index] = gamepad;
-  let controllerDiv = document.getElementById("gamepad-0"); // + gamepad.index);
-  controllerDiv.classList.remove("disconnected");
-  button[gamepad.index] = controllerDiv.getElementsByClassName("button");
-  back[gamepad.index] = controllerDiv.getElementsByClassName("back");
-  start[gamepad.index] = controllerDiv.getElementsByClassName("start");
-  bumper[gamepad.index] = controllerDiv.getElementsByClassName("bumper");
-  dpad[gamepad.index] = controllerDiv.getElementsByClassName("face");
-  console.log(button[gamepad.index]);
-  console.log(gamepad);
+  if (!controllers[gamepad.index]) {
+    controllers[gamepad.index] = gamepad;
+    console.log(gamepad);
+  }
+  let controllerSvg = document.getElementById("gamepad-" + (0 + gamepad.index)).firstElementChild;
+  controllerSvg.getElementById("disconnected").setAttribute("display", "none"); //remove disconnected message
+  buttonA[gamepad.index] = controllerSvg.getElementById("A");
+  buttonB[gamepad.index] = controllerSvg.getElementById("B");
+  buttonX[gamepad.index] = controllerSvg.getElementById("X");
+  buttonY[gamepad.index] = controllerSvg.getElementById("Y");
+  back[gamepad.index] = controllerSvg.getElementById("back");
+  start[gamepad.index] = controllerSvg.getElementById("start");
+  bumperL[gamepad.index] = controllerSvg.getElementById("lBumper");
+  bumperR[gamepad.index] = controllerSvg.getElementById("rBumper");
+  dpadU[gamepad.index] = controllerSvg.getElementById("U");
+  dpadD[gamepad.index] = controllerSvg.getElementById("D");
+  dpadL[gamepad.index] = controllerSvg.getElementById("L");
+  dpadR[gamepad.index] = controllerSvg.getElementById("R");
   controllerTimestamps[gamepad.index] = gamepad.timestamp;
   window.requestAnimationFrame(renderGamepad);
 }
@@ -169,8 +165,12 @@ function gamepadconnected(e) {
 //Remove disconnected gamepads
 function gamepaddisconnected(e) {
   const gamepad = e.gamepad;
-  let controllerDiv = document.getElementById("gamepad-0"); // + gamepad.index);
-  controllerDiv.classList.add("disconnected");
+  let controllerSvg = document.getElementById("gamepad-" + (0 + gamepad.index))
+    .firstElementChild;
+  console.log(controllerSvg);
+  controllerSvg
+    .getElementById("disconnected")
+    .setAttribute("display", "inherited");
   delete controllers[gamepad.index];
 }
 
@@ -186,88 +186,95 @@ function renderGamepad() {
     let currentTimestamp = controller.timestamp;
     if (currentTimestamp > controllerTimestamps[i]) {
       let time = performance.now();
-      let prevControllerData = $.extend(true, {}, controllerData[i]);
+      let prevControllerData = controllerData[i];
       controllerTimestamps[i] = currentTimestamp;
-      //Set serial controller ID and initilize first byte
+      //Set controller ID
       if (i == 0) {
-        controllerData[i][0] = 0b11000000;
+        controllerData[i] = 0b0000000000000000;
       }
       if (i == 1) {
-        controllerData[i][0] = 0b01000000;
+        controllerData[i] = 0b0100000000000000;
       }
       if (i == 2) {
-        controllerData[i][0] = 0b10000000;
+        controllerData[i] = 0b1000000000000000;
       }
       if (i == 3) {
-        controllerData[i][0] = 0b00000000;
+        controllerData[i] = 0b1100000000000000;
       }
-      controllerData[i][1] = 0b00000000;
-      //Capture controller input here and send to HTML and serial
+      //Capture controller input here and send to SVG and serial
       let buttons = controller.buttons;
       let axes = controller.axes;
       for (let b in buttons) {
         if (b == 0) {
+          // A button
           if (buttons[b].pressed) {
-            controllerData[i][1] = controllerData[i][1] | 0b00000001;
-            button[i][0].classList.add("pressed");
+            controllerData[i] = controllerData[i] | 0b0000000000000001; // SNES B
+            buttonA[i].classList.add("pressed");
           } else {
-            button[i][0].classList.remove("pressed");
+            buttonA[i].classList.remove("pressed");
           }
         }
         if (b == 1) {
+          // B button
           if (buttons[b].pressed) {
-            controllerData[i][1] = controllerData[i][1] | 0b00000010;
-            button[i][1].classList.add("pressed");
+            controllerData[i] = controllerData[i] | 0b0000000100000000; // SNES A
+            buttonB[i].classList.add("pressed");
           } else {
-            button[i][1].classList.remove("pressed");
+            buttonB[i].classList.remove("pressed");
           }
         }
         if (b == 2) {
+          // X button
           if (buttons[b].pressed) {
-            controllerData[i][1] = controllerData[i][1] | 0b00000100;
-            button[i][2].classList.add("pressed");
+            controllerData[i] = controllerData[i] | 0b0000000000000010; // SNES Y
+            buttonX[i].classList.add("pressed");
           } else {
-            button[i][2].classList.remove("pressed");
+            buttonX[i].classList.remove("pressed");
           }
         }
         if (b == 3) {
+          // Y button
           if (buttons[b].pressed) {
-            controllerData[i][1] = controllerData[i][1] | 0b00001000;
-            button[i][3].classList.add("pressed");
+            controllerData[i] = controllerData[i] | 0b0000001000000000; // SNES X
+            buttonY[i].classList.add("pressed");
           } else {
-            button[i][3].classList.remove("pressed");
+            buttonY[i].classList.remove("pressed");
           }
         }
         if (b == 4) {
+          // Left Bumper
           if (buttons[b].pressed) {
-            controllerData[i][1] = controllerData[i][1] | 0b00010000;
-            bumper[i][0].classList.add("pressed");
+            controllerData[i] = controllerData[i] | 0b0000010000000000; // SNES LB
+            bumperL[i].classList.add("pressed");
           } else {
-            bumper[i][0].classList.remove("pressed");
+            bumperL[i].classList.remove("pressed");
           }
         }
         if (b == 5) {
+          // Right Bumper
           if (buttons[b].pressed) {
-            controllerData[i][1] = controllerData[i][1] | 0b00100000;
-            bumper[i][1].classList.add("pressed");
+            controllerData[i] = controllerData[i] | 0b0000100000000000; // SNES RB
+            bumperR[i].classList.add("pressed");
           } else {
-            bumper[i][1].classList.remove("pressed");
+            bumperR[i].classList.remove("pressed");
           }
         }
         if (b == 8) {
+          // Back
           if (buttons[b].pressed) {
-            controllerData[i][1] = controllerData[i][1] | 0b01000000;
-            back[i][0].classList.add("pressed");
+            controllerData[i] = controllerData[i] | 0b0000000000000100; // SNES Select
+            back[i].classList.add("pressed");
           } else {
-            back[i][0].classList.remove("pressed");
+            back[i].classList.remove("pressed");
           }
         }
         if (b == 9) {
+          // Start
           if (buttons[b].pressed) {
-            controllerData[i][1] = controllerData[i][1] | 0b10000000;
-            start[i][0].classList.add("pressed");
+            controllerData[i] = controllerData[i] | 0b0000000000001000; // SNES Start
+            start[i].classList.add("pressed");
           } else {
-            start[i][0].classList.remove("pressed");
+            start[i].classList.remove("pressed");
           }
         }
 
@@ -307,53 +314,51 @@ function renderGamepad() {
       for (let a in axes) {
         if (a == 0) {
           if (axes[a] > 0.45 || buttons[15].pressed) {
-            controllerData[i][0] = controllerData[i][0] | 0b00001000;
-            dpad[i][3].classList.add("pressed");
+            // Left Joy - Right
+            controllerData[i] = controllerData[i] | 0b0000000010000000; // SNES Right
+            dpadR[i].classList.add("pressed");
           } else {
-            dpad[i][3].classList.remove("pressed");
+            dpadR[i].classList.remove("pressed");
           }
           if (axes[a] < -0.45 || buttons[14].pressed) {
-            controllerData[i][0] = controllerData[i][0] | 0b00000100;
-            dpad[i][2].classList.add("pressed");
+            // Left Joy - Left
+            controllerData[i] = controllerData[i] | 0b0000000001000000; // SNES Left
+            dpadL[i].classList.add("pressed");
           } else {
-            dpad[i][2].classList.remove("pressed");
+            dpadL[i].classList.remove("pressed");
           }
         }
         if (a == 1) {
           if (axes[a] > 0.45 || buttons[13].pressed) {
-            controllerData[i][0] = controllerData[i][0] | 0b00100000;
-            dpad[i][1].classList.add("pressed");
+            // Left Joy - Down
+            controllerData[i] = controllerData[i] | 0b0000000000100000; // SNES Down
+            dpadD[i].classList.add("pressed");
           } else {
-            dpad[i][1].classList.remove("pressed");
+            dpadD[i].classList.remove("pressed");
           }
           if (axes[a] < -0.45 || buttons[12].pressed) {
-            controllerData[i][0] = controllerData[i][0] | 0b00010000;
-            dpad[i][0].classList.add("pressed");
+            // Left Joy - Up
+            controllerData[i] = controllerData[i] | 0b0000000000010000; // SNES Up
+            dpadU[i].classList.add("pressed");
           } else {
-            dpad[i][0].classList.remove("pressed");
+            dpadU[i].classList.remove("pressed");
           }
         }
       }
-      // console.log("Current : " + controllerData[i][0] + ":" + controllerData[i][1]);
-      // console.log("Previous: " + prevControllerData[0] +  ":" + prevControllerData[1]);
-      if (
-        prevControllerData[0] != controllerData[i][0] ||
-        prevControllerData[1] != controllerData[i][1]
-      ) {
-        // console.log("New Data");
+      if (prevControllerData != controllerData[i]) {
         (async () => {
-          //***Add await serial.read() here with a timeout, increment frame count and proceed if recieve "3"
-          await serialWrite(new Uint8Array([controllerData[i][1]]));
-          let ack = await arduinoCommunicate(controllerData[i][0], 1);
-          //console.log(ack);
+          let ack = await arduinoCommunicate(controllerData[i], 1);
           if (ack == false) {
             console.error("Serial communication error, attempting reset");
-            await serialWrite(new Uint8Array([255]));
-            await serialWrite(new Uint8Array([255]));
+            await serialWrite(new Uint16Array([65535]));
             await shakeHands();
           }
         })();
-        console.log(performance.now()- time);
+        console.log(
+          "Processing time - " +
+            Math.trunc((performance.now() - time) * 1000) +
+            " μs"
+        );
       }
     }
   }
@@ -376,3 +381,66 @@ function updateGamepads() {
 
 window.requestAnimationFrame(renderGamepad);
 //****End of gamepad input section****
+
+//****Configuration Functions****
+
+function changeSkin(skin) {
+  for (const child of document.getElementById("consoleSelect").children) {
+    child.children[0].classList.remove("active");
+  }
+  document.getElementById(skin).classList.add("active");
+
+  let controllerDIV = document.getElementsByClassName("controller");
+  for (let i = 0; i < controllerDIV.length; i++) {
+    let img = document.createElement("img");
+    img.src = "/" + skin + "/" + skin + ".svg";
+    controllerDIV[i].firstElementChild.remove();
+    controllerDIV[i].appendChild(img);
+  }
+
+  SVGInject(controllerDIV[0].parentElement.querySelectorAll("img", "svg"), {
+    onAllFinish: function() {
+      for (let i in controllers) {
+        let e = new Object();
+        e.gamepad = controllers[i];
+        gamepadconnected(e);
+      }
+    }
+  });
+}
+
+function changePlayerNum(num) {
+  for (const child of document.getElementById("numPlayers").children) {
+    child.children[0].classList.remove("active");
+  }
+  document.getElementById(num).classList.add("active");
+
+  if (num == '1') {
+    document.getElementById("gamepad-0").classList = "controller controllerSingle";
+    document.getElementById("gamepad-1").classList = "controller hidden";
+    document.getElementById("gamepad-2").classList = "controller hidden";
+    document.getElementById("gamepad-3").classList = "controller hidden";
+  }
+    if (num == '2') {
+    document.getElementById("gamepad-0").classList = "controller controllerLeft";
+    document.getElementById("gamepad-1").classList = "controller controllerRight";
+    document.getElementById("gamepad-2").classList = "controller hidden";
+    document.getElementById("gamepad-3").classList = "controller hidden";
+  }
+    if (num == '3') {
+    document.getElementById("gamepad-0").classList = "controller controllerCenter";
+    document.getElementById("gamepad-1").classList = "controller controllerLeft";
+    document.getElementById("gamepad-2").classList = "controller controllerRight";
+    document.getElementById("gamepad-3").classList = "controller hidden";
+  }
+    if (num == '4') {
+    document.getElementById("gamepad-0").classList = "controller controllerLeft";
+    document.getElementById("gamepad-1").classList = "controller controllerRight";
+    document.getElementById("gamepad-2").classList = "controller controllerLeft";
+    document.getElementById("gamepad-3").classList = "controller controllerRight";
+  }
+}
+
+function changeColor(color){
+  document.querySelectorAll("html")[0].style.backgroundColor=color;
+}
