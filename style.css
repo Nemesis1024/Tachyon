@@ -1,8 +1,14 @@
 /* CSS files add styling rules to your content */
+html {
+  background: #444;
+  height: 100%;
+  min-height: 100%;
+}
 
 body {
   font-family: "Benton Sans", "Helvetica Neue", helvetica, arial, sans-serif;
   margin: 0;
+  background-color: transparent !important;
 }
 
 .header {
@@ -15,7 +21,7 @@ body {
   flex-wrap: nowrap;
   font-size: 20px;
   height: 5vh;
-  min-height: 50px;
+  min-height: 60px;
   justify-content: flex-start;
   padding: 16px 16px 0 16px;
   position: fixed;
@@ -38,9 +44,33 @@ body {
   flex: 1;
   overflow-x: hidden;
   overflow-y: auto;
-  padding-top: 80px;
-  padding-left: 1em;
-  padding-right: 1em;
+/*   padding-top: 70px; */
+  padding-left: 2em;
+  padding-right: 2em;
+}
+
+.controller {
+  padding-top: 2em;
+}
+
+.controllerSingle {
+  margin: auto;
+  width: 100%;
+}
+
+.controllerCenter {
+  margin: auto;
+  width: 49%;
+}
+
+.controllerLeft {
+  float: left;
+  width: 49%;
+}
+
+.controllerRight {
+  margin-left: 51%;
+  width: 49%;
 }
 
 #notSupported {

@@ -1,107 +1,102 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <title>PC Gamepad to game console</title>
-    <meta charset="utf-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <head>
+        <title>PC Gamepad to game console</title>
+        <meta charset="utf-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <!-- import the webpage's stylesheet -->
-    <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="snes/snes.css" />
-    <link
-      rel="stylesheet"
-      href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
-    />
+        <!-- import the webpage's stylesheet -->
+        <link rel="stylesheet" href="style.css" />
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous" />
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
 
-    <!-- import the webpage's javascript file -->
-    <script src="script.js" defer></script>
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"></script>
-  </head>
-  <body>
-    <header class="header">
-      <h1>Gamepad to Arduino via Web Serial</h1>
-    </header>
-    <main class="main">
-      <div id="notSupported" class="notsupported">
-        Sorry, <b>Web Serial</b> is not supported on this device, make sure
-        you're running Chrome 78 or later and have enabled the
-        <b>#enable-experimental-web-platform-features</b> flag in
-        <b>chrome://flags</b>
-      </div>
+        <!-- import the webpage's javascript file -->
+        <script src="svg-inject.js"></script>
+        <script src="script.js" defer></script>
+        <!--     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script> -->
+        <script>
+            SVGInject.setOptions({ makeIdsUnique: false });
+        </script>
+    </head>
+    <body>
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="#">Gamepad to Arduino via Web Serial</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavDarkDropdown" aria-controls="navbarNavDarkDropdown" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNavDarkDropdown">
+                    <ul class="navbar-nav">
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Players
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-dark" id="numPlayers" aria-labelledby="navbarDarkDropdownMenuLink">
+                                <li>
+                                    <a class="dropdown-item" href="#" id="1" onclick="changePlayerNum('1');">1</a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="#" id="2" onclick="changePlayerNum('2');">2</a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="#" id="3" onclick="changePlayerNum('3');">3</a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="#" id="4" onclick="changePlayerNum('4');">4</a>
+                                </li>
+                            </ul>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Console/Skin
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-dark" id="consoleSelect" aria-labelledby="navbarDarkDropdownMenuLink">
+                                <li>
+                                    <a class="dropdown-item active" id="snes" href="#" onclick="changeSkin('snes')">SNES</a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="#" id="nes" onclick="changeSkin('nes');">NES</a>
+                                </li>
+                            </ul>
+                        </li>
+                        <li class="nav-item" style="display: table;">
+                            <label for="backgroundColorInput" class="nav-link" style="display: table-cell;">Background</label>
+                            <input type="color" style="display: table-cell; visibility: hidden;" id="backgroundColorInput" value="#404040" onchange="changeColor(this.value)" />
+                        </li>
+                    </ul>
+                </div>
+                <div class="collapse navbar-collapse justify-content-end" id="navbarNavDarkDropdown">
+                    <ul class="navbar-nav">
+                        <li class="nav-item" id="serialConnect">
+                            <a class="nav-link" aria-current="page" href="#" id="connect-button">Connect 🔌</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
 
-      <div id="serialConnect" class="hidden">
-        <button class="btn btn-primary" id="connect-button">
-          🔌 Connect
-        </button>
-      </div>
+        <main class="main">
+            <div id="notSupported" class="notsupported">
+                Sorry, <b>Web Serial</b> is not supported on this device, make sure you're running Chrome 78 or later and have enabled the <b>#enable-experimental-web-platform-features</b> flag in
+                <b>chrome://flags</b>
+            </div>
 
-      <div class="controller snes disconnected" id="gamepad-0">
-        <div class="triggers">
-          <span class="trigger left" style="opacity: 0;"></span>
-          <span class="trigger right" style="opacity: 0;"></span>
-          <span class="trigger-button left"></span>
-          <span class="trigger-button right"></span>
-          <span class="clear"></span>
-        </div>
+            <div class="controller hidden controllerLeft" id="gamepad-0">
+                <img src="snes/snes.svg" onload="SVGInject(this)" />
+            </div>
 
-        <div class="bumpers">
-          <span class="bumper left"></span>
-          <span class="bumper right"></span>
-          <span class="clear"></span>
-        </div>
+            <div class="controller hidden controllerRight" id="gamepad-1">
+                <img src="snes/snes.svg" onload="SVGInject(this)" />
+            </div>
 
-        <div class="quadrant p0"></div>
+            <div class="controller hidden controllerLeft" id="gamepad-2">
+                <img src="snes/snes.svg" onload="SVGInject(this)" />
+            </div>
 
-        <div class="meta"></div>
-
-        <div class="arrows">
-          <span class="back"></span>
-          <span class="start"></span>
-          <span class="clear"></span>
-        </div>
-
-        <div class="abxy">
-          <span class="button a"></span>
-          <span class="button b"></span>
-          <span class="button x"></span>
-          <span class="button y"></span>
-        </div>
-
-        <div class="sticks">
-          <span
-            class="stick left"
-            style="margin-left: 0px; margin-top: 0px; transform: rotateX(0deg) rotateY(0deg);"
-          ></span>
-          <span
-            class="stick right"
-            style="margin-left: 0px; margin-top: 0px; transform: rotateX(0deg) rotateY(0deg);"
-          ></span>
-        </div>
-
-        <!--         <div class="wheels">
-            <span class="wheel left" data-name="stick-1-wheel" style="transform: rotate(0deg);"></span>
-            <span class="wheel right" data-name="stick-2-wheel" style="transform: rotate(0deg);"></span>
-        </div> -->
-
-        <div class="dpad">
-          <span class="face up"></span>
-          <span class="face down"></span>
-          <span class="face left"></span>
-          <span class="face right"></span>
-        </div>
-
-        <!--         <div class="fstick" data-name="arcade-stick"></div> -->
-      </div>
-
-      <!-- include the Glitch button to show what the webpage is about and
-          to make it easier for folks to view source and remix -->
-      <div
-        class="glitchButton"
-        style="position:fixed;top:80px;right:20px;"
-      ></div>
-      <script src="https://button.glitch.me/button.js"></script>
-    </main>
-  </body>
+            <div class="controller hidden controllerRight" id="gamepad-3">
+                <img src="snes/snes.svg" onload="SVGInject(this)" />
+            </div>
+        </main>
+    </body>
 </html>
