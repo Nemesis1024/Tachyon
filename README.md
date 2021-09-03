@@ -12,7 +12,7 @@ You will obviously need a **low latency** capture card to capture the video from
 The web interface also provides a controller input display for all of the controllers with skins for each supported output console. 
 This part was heavily inspired by [Gamepad Viewer](https://gamepadviewer.com) by mrmcpowned but has been written mostly from scratch.
 
-Try it out here: [https://web-serial-arduino-gamepad.glitch.me](https://web-serial-arduino-gamepad.glitch.me)
+Try it out here: [https://nemesis1024.github.io/web-serial-arduino-gamepad/](https://nemesis1024.github.io/web-serial-arduino-gamepad/)
 
 You will need to enable Chrome's **Experimental Web Platform Features** by visiting [chrome://flags/#enable-experimental-web-platform-features](chrome://flags/#enable-experimental-web-platform-features)
 _(copy the link and paste in a new tab)_
