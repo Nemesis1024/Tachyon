@@ -57,3 +57,6 @@ The connections for S/NES controllers to the Arduino are as follows:
 - Player 2 Data to pin 5
 - Player 2 Clock to pin 6
 
+## Special thanks
+
+I want to give a special thank you to **mantixero** for helping with testing, being excited about the project and cheering me on. Thanks man!
