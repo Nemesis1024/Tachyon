@@ -45,8 +45,8 @@ body {
   overflow-x: hidden;
   overflow-y: auto;
 /*   padding-top: 70px; */
-  padding-left: 2em;
-  padding-right: 2em;
+  padding-left: 12.75em;
+  padding-right: 12.75em;
 }
 
 .controller {
@@ -55,22 +55,22 @@ body {
 
 .controllerSingle {
   margin: auto;
-  width: 100%;
+  width: 88%;
 }
 
 .controllerCenter {
   margin: auto;
-  width: 49%;
+  width: 48%;
 }
 
 .controllerLeft {
   float: left;
-  width: 49%;
+  width: 48%;
 }
 
 .controllerRight {
-  margin-left: 51%;
-  width: 49%;
+  margin-left: 52%;
+  width: 48%;
 }
 
 #notSupported {

@@ -3,7 +3,7 @@ const connectButton = document.getElementById("connect-button");
 let port;
 let writer;
 let reader;
-let arduinoReady = false;
+let controllerMode = "snes";
 
 //Check if the serial API is enabled and add enable the connect button if it is
 if ("serial" in navigator) {
@@ -13,14 +13,7 @@ if ("serial" in navigator) {
   serialConnect.classList.remove("hidden");
   connectButton.addEventListener("click", function() {
     if (port) {
-      reader.releaseLock();
-      writer.releaseLock();
-      port.close();
-      port = undefined;
-      reader = undefined;
-      writer = undefined;
-      console.log("Disconnected");
-      connectButton.innerText = "Connect 🔌";
+      serialDisable();
     } else {
       serialInit();
     }
@@ -31,60 +24,44 @@ if ("serial" in navigator) {
 async function serialInit() {
   port = await navigator.serial.requestPort({});
   await port.open({ baudRate: 115200 });
-  writer = port.writable.getWriter();
-  reader = port.readable.getReader();
   console.log("Connected");
   connectButton.innerText = "Connecting... 🔌";
   let status = await shakeHands();
-  //console.log("Shake hands: " + status);
   if (status == true) {
     connectButton.innerText = "Disconnect 🔌";
   } else {
     if (port) {
-      await reader.cancel();
-      reader.releaseLock();
-      writer.releaseLock();
-      port.close();
-      port = undefined;
-      reader = undefined;
-      writer = undefined;
-      console.log("Disconnected");
-      connectButton.innerText = "Connect 🔌";
+      serialDisable();
     }
   }
 }
 
-async function serialWrite(data) {
-  try {
-    await writer.writable;
-    return await writer.write(data);
-  } catch (err) {
-    console.error(err);
+async function serialDisable() {
+  console.log("Disabling serial");
+  if (port) {
+    port.close();
+    reader = undefined;
+    writer = undefined;
+    port = undefined;
   }
-}
-
-async function serialRead() {
-  try {
-    let data = await reader.read();
-    return data.value;
-  } catch (err) {
-    console.error(err);
-  }
-}
-
-async function wait(ms) {
-  return new Promise(resolve => {
-    setTimeout(resolve, ms);
-  });
+  console.log("Disconnected");
+  connectButton.innerText = "Connect 🔌";
 }
 
 async function shakeHands() {
-  let response;
   console.log("Probing...");
-  response = await arduinoCommunicate(65535, 4);
+  let response = await arduinoCommunicate(65535, 4);
   if (response == true) {
     console.log("A wild Arduino appears");
-    response = await arduinoCommunicate(20037, 1); //Tell Arduino we are in S/NES mode ("NE")
+    if ((controllerMode == "snes") | "nes") {
+      response = await arduinoCommunicate(20037, 1); //Tell Arduino we are in S/NES mode ("NE")
+    }
+    if (controllerMode == "gen3") {
+      response = await arduinoCommunicate(18227, 1); //Tell Arduino we are in Genesis 3 button mode ("G3")
+    }
+    if (controllerMode == "gen6") {
+      response = await arduinoCommunicate(18230, 1); //Tell Arduino we are in Genesis 6 button mode ("G6")
+    }
     if (response == true) {
       console.log("Arduino says hi");
       response = await arduinoCommunicate(18537, 2); //"Hi"
@@ -104,17 +81,21 @@ async function shakeHands() {
 
 async function arduinoCommunicate(request, response) {
   if (port) {
-    let bytes = new Uint16Array([request]);
-    let arduinoResponse;
-    let write = await serialWrite(bytes); //Send command and wait for it to finish
-    arduinoResponse = await serialRead(); //Wait for reply from Arduino
-    if (arduinoResponse == response) {
+    const message = new Uint16Array([request]);
+    const writer = port.writable.getWriter();
+    const reader = port.readable.getReader();
+    await writer.write(message);
+    const { value, done } = await reader.read();
+    writer.releaseLock();
+    reader.releaseLock();
+    if (value == response) {
       return true;
     } else {
+      console.error("Was expecting " + response + " but got: " + value);
       return false;
     }
   } else {
-    console.error("Not connected to Arduino");
+    console.error("Not connected to arduino");
   }
 }
 //****End of serial communication section****
@@ -139,27 +120,37 @@ let controllerData = [{}, new Uint16Array()];
 
 //Add newly connected gamepads
 function gamepadconnected(e) {
-  const gamepad = e.gamepad;
-  if (!controllers[gamepad.index]) {
-    controllers[gamepad.index] = gamepad;
-    console.log(gamepad);
+  if (e.gamepad) {
+    if (e.gamepad.mapping != "standard") {
+      console.error("Incompatible gamepad connected - " + e.gamepad.id);
+    } else {
+      const gamepad = e.gamepad;
+      if (!controllers[gamepad.index]) {
+        controllers[gamepad.index] = gamepad;
+        console.log(gamepad);
+      }
+      let controllerSvg = document.getElementById(
+        "gamepad-" + (0 + gamepad.index)
+      ).firstElementChild;
+      controllerSvg
+        .getElementById("disconnected")
+        .setAttribute("display", "none"); //remove disconnected message
+      buttonA[gamepad.index] = controllerSvg.getElementById("A");
+      buttonB[gamepad.index] = controllerSvg.getElementById("B");
+      buttonX[gamepad.index] = controllerSvg.getElementById("X");
+      buttonY[gamepad.index] = controllerSvg.getElementById("Y");
+      back[gamepad.index] = controllerSvg.getElementById("back");
+      start[gamepad.index] = controllerSvg.getElementById("start");
+      bumperL[gamepad.index] = controllerSvg.getElementById("lBumper");
+      bumperR[gamepad.index] = controllerSvg.getElementById("rBumper");
+      dpadU[gamepad.index] = controllerSvg.getElementById("U");
+      dpadD[gamepad.index] = controllerSvg.getElementById("D");
+      dpadL[gamepad.index] = controllerSvg.getElementById("L");
+      dpadR[gamepad.index] = controllerSvg.getElementById("R");
+      controllerTimestamps[gamepad.index] = gamepad.timestamp;
+      window.requestAnimationFrame(renderGamepad);
+    }
   }
-  let controllerSvg = document.getElementById("gamepad-" + (0 + gamepad.index)).firstElementChild;
-  controllerSvg.getElementById("disconnected").setAttribute("display", "none"); //remove disconnected message
-  buttonA[gamepad.index] = controllerSvg.getElementById("A");
-  buttonB[gamepad.index] = controllerSvg.getElementById("B");
-  buttonX[gamepad.index] = controllerSvg.getElementById("X");
-  buttonY[gamepad.index] = controllerSvg.getElementById("Y");
-  back[gamepad.index] = controllerSvg.getElementById("back");
-  start[gamepad.index] = controllerSvg.getElementById("start");
-  bumperL[gamepad.index] = controllerSvg.getElementById("lBumper");
-  bumperR[gamepad.index] = controllerSvg.getElementById("rBumper");
-  dpadU[gamepad.index] = controllerSvg.getElementById("U");
-  dpadD[gamepad.index] = controllerSvg.getElementById("D");
-  dpadL[gamepad.index] = controllerSvg.getElementById("L");
-  dpadR[gamepad.index] = controllerSvg.getElementById("R");
-  controllerTimestamps[gamepad.index] = gamepad.timestamp;
-  window.requestAnimationFrame(renderGamepad);
 }
 
 //Remove disconnected gamepads
@@ -167,7 +158,6 @@ function gamepaddisconnected(e) {
   const gamepad = e.gamepad;
   let controllerSvg = document.getElementById("gamepad-" + (0 + gamepad.index))
     .firstElementChild;
-  console.log(controllerSvg);
   controllerSvg
     .getElementById("disconnected")
     .setAttribute("display", "inherited");
@@ -179,7 +169,7 @@ window.addEventListener("gamepadconnected", gamepadconnected);
 window.addEventListener("gamepaddisconnected", gamepaddisconnected);
 
 //Main animation loop
-function renderGamepad() {
+async function renderGamepad() {
   updateGamepads();
   for (let i in controllers) {
     let controller = controllers[i];
@@ -346,14 +336,16 @@ function renderGamepad() {
         }
       }
       if (prevControllerData != controllerData[i]) {
-        (async () => {
-          let ack = await arduinoCommunicate(controllerData[i], 1);
-          if (ack == false) {
-            console.error("Serial communication error, attempting reset");
-            await serialWrite(new Uint16Array([65535]));
-            await shakeHands();
+        let ack = await arduinoCommunicate(controllerData[i], 1);
+        if (ack == false) {
+          console.error("Serial communication error, attempting reset");
+          if (port) {
+            let status = await shakeHands();
+            if (status != true) {
+              await serialDisable();
+            }
           }
-        })();
+        }
         console.log(
           "Processing time - " +
             Math.trunc((performance.now() - time) * 1000) +
@@ -384,7 +376,7 @@ window.requestAnimationFrame(renderGamepad);
 
 //****Configuration Functions****
 
-function changeSkin(skin) {
+async function changeSkin(skin) {
   for (const child of document.getElementById("consoleSelect").children) {
     child.children[0].classList.remove("active");
   }
@@ -407,6 +399,13 @@ function changeSkin(skin) {
       }
     }
   });
+  controllerMode = skin;
+  if (port) {
+    let status = await shakeHands();
+    if (status != true) {
+      serialDisable();
+    }
+  }
 }
 
 function changePlayerNum(num) {
@@ -415,32 +414,42 @@ function changePlayerNum(num) {
   }
   document.getElementById(num).classList.add("active");
 
-  if (num == '1') {
-    document.getElementById("gamepad-0").classList = "controller controllerSingle";
+  if (num == "1") {
+    document.getElementById("gamepad-0").classList =
+      "controller controllerSingle";
     document.getElementById("gamepad-1").classList = "controller hidden";
     document.getElementById("gamepad-2").classList = "controller hidden";
     document.getElementById("gamepad-3").classList = "controller hidden";
   }
-    if (num == '2') {
-    document.getElementById("gamepad-0").classList = "controller controllerLeft";
-    document.getElementById("gamepad-1").classList = "controller controllerRight";
+  if (num == "2") {
+    document.getElementById("gamepad-0").classList =
+      "controller controllerLeft";
+    document.getElementById("gamepad-1").classList =
+      "controller controllerRight";
     document.getElementById("gamepad-2").classList = "controller hidden";
     document.getElementById("gamepad-3").classList = "controller hidden";
   }
-    if (num == '3') {
-    document.getElementById("gamepad-0").classList = "controller controllerCenter";
-    document.getElementById("gamepad-1").classList = "controller controllerLeft";
-    document.getElementById("gamepad-2").classList = "controller controllerRight";
+  if (num == "3") {
+    document.getElementById("gamepad-0").classList =
+      "controller controllerCenter";
+    document.getElementById("gamepad-1").classList =
+      "controller controllerLeft";
+    document.getElementById("gamepad-2").classList =
+      "controller controllerRight";
     document.getElementById("gamepad-3").classList = "controller hidden";
   }
-    if (num == '4') {
-    document.getElementById("gamepad-0").classList = "controller controllerLeft";
-    document.getElementById("gamepad-1").classList = "controller controllerRight";
-    document.getElementById("gamepad-2").classList = "controller controllerLeft";
-    document.getElementById("gamepad-3").classList = "controller controllerRight";
+  if (num == "4") {
+    document.getElementById("gamepad-0").classList =
+      "controller controllerLeft";
+    document.getElementById("gamepad-1").classList =
+      "controller controllerRight";
+    document.getElementById("gamepad-2").classList =
+      "controller controllerLeft";
+    document.getElementById("gamepad-3").classList =
+      "controller controllerRight";
   }
 }
 
-function changeColor(color){
-  document.querySelectorAll("html")[0].style.backgroundColor=color;
+function changeColor(color) {
+  document.querySelectorAll("html")[0].style.backgroundColor = color;
 }
